@@ -699,7 +699,7 @@ gimgioAPI Gimgio *gimgioOpen_(Gs const * const fileName, GimgioOpenMode const mo
    img = gmemCreateType(Gimgio);
    greturnNullIf(!img);
 
-   loopOnce
+   loop
    {
       img->mode     = mode;
       img->format   = format;

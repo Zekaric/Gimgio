@@ -19,6 +19,9 @@
     <Filter Include="Third Party Files\PNG">
       <UniqueIdentifier>{88703029-5cd6-4ade-9c4c-c28aa3819144}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Third Party Files\ZIP">
+      <UniqueIdentifier>{6084d62b-a0e0-4727-9014-7f5c39c779b8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bmpio.c">
@@ -44,6 +47,9 @@
     </ClCompile>
     <ClCompile Include="tp_png\spng.c">
       <Filter>Third Party Files\PNG</Filter>
+    </ClCompile>
+    <ClCompile Include="tp_zip\miniz.c">
+      <Filter>Third Party Files\ZIP</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -73,6 +79,9 @@
     </ClInclude>
     <ClInclude Include="tp_png\spng.h">
       <Filter>Third Party Files\PNG</Filter>
+    </ClInclude>
+    <ClInclude Include="tp_zip\miniz.h">
+      <Filter>Third Party Files\ZIP</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
