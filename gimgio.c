@@ -149,41 +149,41 @@ gimgioAPI GimgioFormat gimgioGetFormatFromName(Gpath const * const path)
 
    // try to figure the format from the extension.  Override the 
    // provided format if set.
-   if      (gsCompareBaseA(extension, "BMP") == gcompareEQUAL)
+   if      (gsIsEqualBaseA(extension, "BMP"))
    {
       result = gimgioFormatBMP;
    }
-   else if (gsCompareBaseA(extension, "GIF") == gcompareEQUAL)
+   else if (gsIsEqualBaseA(extension, "GIF"))
    {
       result = gimgioFormatGIF;
    }
-   else if (gsCompareBaseA(extension, "JPG")  == gcompareEQUAL ||
-            gsCompareBaseA(extension, "JPEG") == gcompareEQUAL)
+   else if (gsIsEqualBaseA(extension, "JPG")||
+            gsIsEqualBaseA(extension, "JPEG"))
    {
       result = gimgioFormatJPG;
    }
-   else if (gsCompareBaseA(extension, "PNG") == gcompareEQUAL)
+   else if (gsIsEqualBaseA(extension, "PNG"))
    {
       result = gimgioFormatPNG;
    }
-   //else if (gsCompareBaseA(extension, "PPM") == gcompareEQUAL)
+   //else if (gsIsEqualBaseA(extension, "PPM"))
    //{
    //   result = gimgioFormatPPM;
    //}
-   else if (gsCompareBaseA(extension, "GRAW") == gcompareEQUAL)
+   else if (gsIsEqualBaseA(extension, "GRAW"))
    {
       result = gimgioFormatGRAW;
    }
-   //else if (gsCompareBaseA(extension, "RLE") == gcompareEQUAL)
+   //else if (gsIsEqualBaseA(extension, "RLE"))
    //{
    //   result = gimgioFormatRLE;
    //}
-   //else if (gsCompareBaseA(extension, "TRG") == gcompareEQUAL)
+   //else if (gsIsEqualBaseA(extension, "TRG"))
    //{
    //   result = gimgioFormatTRG;
    //}
-   else if (gsCompareBaseA(extension, "TIF")  == gcompareEQUAL ||
-            gsCompareBaseA(extension, "TIFF") == gcompareEQUAL)
+   else if (gsIsEqualBaseA(extension, "TIF") ||
+            gsIsEqualBaseA(extension, "TIFF"))
    {
       result = gimgioFormatTIFF;
    }
@@ -677,11 +677,66 @@ gimgioAPI Gb gimgioIsStarted(void)
 }
 
 /******************************************************************************
+func: gimgioLoad
+******************************************************************************/
+gimgioAPI Gb gimgioLoad(Gpath const * const filename, GimgioType const type, 
+   Gcount * const width, Gcount * const height, void ** const pixel)
+{
+   genter;
+
+   Gb        result;
+   Gimgio   *imgio;
+   Gi4       pixelSize;
+   Gn1      *pixelBuffer;
+
+   greturnFalseIf(
+      !filename ||
+      !width    ||
+      !height   ||
+      !pixel    ||
+      type == gimgioTypeNONE);
+
+   result = gbFALSE;
+
+   *width  = 0;
+   *height = 0;
+   *pixel  = NULL;
+
+   breakScope
+   {
+      // Open the image file.
+      imgio = gimgioOpen(filename, gimgioOpenREAD, gimgioGetFormatFromName(filename));
+      breakIf(!imgio);
+
+      // Get the image dimensions.
+      *width  = gimgioGetWidth( imgio);
+      *height = gimgioGetHeight(imgio);
+
+      // Create the image pixel buffer.
+      pixelSize = gimgioGetPixelSize(type, *width);
+
+      // Create the pixel buffer
+      pixelBuffer = gmemCreateTypeArray(Gn1, pixelSize * *height);
+      breakIf(!pixelBuffer);
+
+      // Populate the pixel buffer
+      breakIf(!gimgioGetPixelRowAll(imgio, pixelBuffer));
+
+      result = gbTRUE;
+   }
+
+   // Cleanup
+   gimgioClose(imgio);
+
+   greturn result;
+}
+
+/******************************************************************************
 func: gimgioOpen_
 
 Open an image file for reading, writing or appending.
 ******************************************************************************/
-gimgioAPI Gimgio *gimgioOpen_(Gs const * const fileName, GimgioOpenMode const mode, 
+gimgioAPI Gimgio *gimgioOpen_(Gpath const * const fileName, GimgioOpenMode const mode, 
    GimgioFormat const format)
 {
    genter;

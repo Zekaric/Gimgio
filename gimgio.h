@@ -149,6 +149,8 @@ gimgioAPI Gcount       gimgioGetWidth(          Gimgio const * const img);
 
 gimgioAPI Gb           gimgioIsStarted(         void);
 
+gimgioAPI Gb           gimgioLoad(              Gpath const * const filename, GimgioType const type, Gcount * const width, Gcount * const height, void ** const pixel);
+
 gimgioAPI Gimgio      *gimgioOpen_(             Gpath const * const filename, GimgioOpenMode const mode, GimgioFormat const format);
 
 gimgioAPI Gb           gimgioSetCompression(    Gimgio       * const img, Gr const amount);

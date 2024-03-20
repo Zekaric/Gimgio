@@ -211,8 +211,8 @@ static Gb _PngReadStart(Gimgio * const img)
 
    // Read in the file
    greturnFalseIf(
-      !gfileLoadContent(
-         img->fileName, 
+      !gfileGetContent(
+         img->file, 
          &data->pngFileByteCount, 
          &data->pngFileByteList));
 
