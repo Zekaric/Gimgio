@@ -21,11 +21,13 @@ type:
 ******************************************************************************/
 typedef struct 
 {
-   spng_ctx      *pngContext;
-   Gcount         pngFileByteCount;
-   Gn1           *pngFileByteList;
-   size_t         pngRGBASize;
-   Gn1           *pngRGBA;
+   spng_ctx          *pngContext;
+   struct spng_ihdr   pngHeader;
+   int                pngFormat;
+   Gcount             pngFileByteCount;
+   Gn1               *pngFileByteList;
+   size_t             pngImageSize;
+   Gn1               *pngImage;
 } Pngio;
 
 /******************************************************************************
@@ -152,7 +154,7 @@ static void _PngDestroyContent(Gimgio * const img)
    // Reading
    if (img->mode == gimgioOpenREAD)
    {
-      memDestroy(data->pngRGBA);
+      memDestroy(data->pngImage);
    }
    // Writing
    else 
@@ -185,7 +187,7 @@ static Gb _PngGetPixelRow(Gimgio * const img, void * const pixel)
    gimgioConvert(
       img->width,
       img->typeFile,
-      &data->pngRGBA[4 * img->width * img->row],
+      &data->pngImage[4 * img->width * img->row],
       img->typePixel,
       pixel);
 
@@ -201,55 +203,113 @@ static Gb _PngReadStart(Gimgio * const img)
 {
    genter;
 
-   Pngio   *data;
-   uint32_t w,
-            h;
+   Gb                 result;
+   Pngio             *data;
+   size_t             limit = ((size_t) 1024 * 1024) * 64;
+   int                ret;
 
-   data = (Pngio *) img->data;
+   result = gbFALSE;
+   data   = (Pngio *) img->data;
 
    data->pngContext = spng_ctx_new(0);
 
-   // Read in the file
-   greturnFalseIf(
-      !gfileGetContent(
-         img->file, 
-         &data->pngFileByteCount, 
-         &data->pngFileByteList));
-
-   spng_set_png_buffer(
-      data->pngContext, 
-      data->pngFileByteList, 
-      data->pngFileByteCount);
-
-   spng_get_image_limits(data->pngContext, &w, &h);
-   img->width        = (Gcount) w;
-   img->height       = (Gcount) h;
-   img->format       = gimgioFormatPNG;
-   img->typeFile     = 
-      img->typePixel = gimgioTypeRGB | gimgioTypeALPHA | gimgioTypeN1;
-   img->imageCount   = 1;
-   img->imageIndex   = 0;
-   img->row          = 0;
-
-   spng_decoded_image_size(
-      data->pngContext, 
-      SPNG_FMT_RGBA8, 
-      &data->pngRGBASize);
-
-   data->pngRGBA = memCreateTypeArray(Gn1, data->pngRGBASize);
-   if (!data->pngRGBA)
+   breakScope
    {
-      memDestroy(data->pngFileByteList);
-      greturn gbFALSE;
+      // Read in the file
+      breakIf(!gfileGetContent(img->file, &data->pngFileByteCount, &data->pngFileByteList));
+
+      spng_set_crc_action(  data->pngContext, SPNG_CRC_USE, SPNG_CRC_USE);
+      spng_set_chunk_limits(data->pngContext, limit, limit);
+      spng_set_png_buffer(  data->pngContext, data->pngFileByteList, data->pngFileByteCount);
+
+      ret = spng_get_ihdr(data->pngContext, &data->pngHeader);
+      breakIf(ret);
+
+      img->width        = (Gcount) data->pngHeader.width;
+      img->height       = (Gcount) data->pngHeader.height;
+      
+      data->pngFormat = SPNG_FMT_PNG;
+      if      (data->pngHeader.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
+      {
+         img->typeFile = gimgioTypeBLACK;
+      }
+      else if (data->pngHeader.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+      {
+         img->typeFile = gimgioTypeRGB;
+      }
+      else if (data->pngHeader.color_type == SPNG_COLOR_TYPE_INDEXED)
+      {
+         img->typeFile   = gimgioTypeRGB;
+         data->pngFormat = SPNG_FMT_RGBA8;
+      }
+      else if (data->pngHeader.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
+      {
+         img->typeFile = gimgioTypeBLACK | gimgioTypeALPHA;
+      }
+      else if (data->pngHeader.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA)
+      {
+         img->typeFile = gimgioTypeRGB | gimgioTypeALPHA;
+      }
+      else
+      {
+         break;
+      }
+
+      if      (data->pngHeader.bit_depth == 8)
+      {
+         img->typeFile |= gimgioTypeN1;
+      }
+      else if (data->pngHeader.bit_depth == 16)
+      {
+         img->typeFile |= gimgioTypeN2;
+      }
+      else
+      {
+         break;
+      }
+
+#if 0
+      struct spng_plte plte = {0};
+      ret = spng_get_plte(ctx, &plte);
+
+      if (ret && 
+          ret != SPNG_ECHUNKAVAIL)
+      {
+         printf("spng_get_plte() error: %s\n", spng_strerror(ret));
+         goto error;
+      }
+
+      if (!ret) 
+      {
+         printf("palette entries: %u\n", plte.n_entries);
+      }
+#endif
+
+      img->format       = gimgioFormatPNG;
+      img->imageCount   = 1;
+      img->imageIndex   = 0;
+      img->row          = 0;
+
+      spng_decoded_image_size(data->pngContext, data->pngFormat, &data->pngImageSize);
+
+      data->pngImage = memCreateTypeArray(Gn1, data->pngImageSize);
+      if (!data->pngImage)
+      {
+         memDestroy(data->pngFileByteList);
+         break;
+      }
+
+      ret = spng_decode_image(
+         data->pngContext, 
+         data->pngImage, 
+         data->pngImageSize, 
+         data->pngFormat, 
+         0);
+
+      result = gbTRUE;
    }
 
-   spng_decode_image(
-      data->pngContext, 
-      data->pngRGBA, 
-      data->pngRGBASize, 
-      SPNG_FMT_RGBA8, 
-      0);
-
+   // Clean up
    memDestroy(data->pngFileByteList);
    data->pngFileByteList = NULL;
 
@@ -291,7 +351,7 @@ static Gb _PngSetPixelRow(Gimgio * const img, void * const pixel)
       img->typePixel,
       pixel,
       img->typeFile,
-      &data->pngRGBA[4 * img->width * img->row]);
+      &data->pngImage[4 * img->width * img->row]);
 
    greturn gbTRUE;
 }
@@ -415,8 +475,8 @@ static Gb _WritePng(Gimgio * const img, Pngio * const data)
    // SPNG_ENCODE_FINALIZE will finalize the PNG with the end-of-file marker
    spng_encode_image(
       data->pngContext, 
-      data->pngRGBA, 
-      data->pngRGBASize, 
+      data->pngImage, 
+      data->pngImageSize, 
       SPNG_FMT_PNG, 
       SPNG_ENCODE_FINALIZE);
 
