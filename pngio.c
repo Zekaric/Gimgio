@@ -154,7 +154,7 @@ static void _PngDestroyContent(Gimgio * const img)
    // Reading
    if (img->mode == gimgioOpenREAD)
    {
-      memDestroy(data->pngImage);
+      gmemDestroy(data->pngImage);
    }
    // Writing
    else 
@@ -292,10 +292,10 @@ static Gb _PngReadStart(Gimgio * const img)
 
       spng_decoded_image_size(data->pngContext, data->pngFormat, &data->pngImageSize);
 
-      data->pngImage = memCreateTypeArray(Gn1, data->pngImageSize);
+      data->pngImage = gmemCreateTypeArray(Gn1, (Gcount) data->pngImageSize);
       if (!data->pngImage)
       {
-         memDestroy(data->pngFileByteList);
+         gmemDestroy(data->pngFileByteList);
          break;
       }
 
@@ -310,13 +310,13 @@ static Gb _PngReadStart(Gimgio * const img)
    }
 
    // Clean up
-   memDestroy(data->pngFileByteList);
+   gmemDestroy(data->pngFileByteList);
    data->pngFileByteList = NULL;
 
    spng_ctx_free(data->pngContext);
    data->pngContext = NULL;
 
-   greturn gbTRUE;
+   greturn result;
 }
 
 /******************************************************************************

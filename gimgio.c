@@ -61,6 +61,8 @@ gimgioAPI void gimgioClose(Gimgio * const img)
 #endif
    gfileClose(img->file);
 
+   gsDestroy(img->fileName);
+
    gmemDestroy(img);
 
    greturn;
@@ -721,6 +723,8 @@ gimgioAPI Gb gimgioLoad(Gpath const * const filename, GimgioType const type,
 
       // Populate the pixel buffer
       breakIf(!gimgioGetPixelRowAll(imgio, pixelBuffer));
+
+      *pixel = pixelBuffer;
 
       result = gbTRUE;
    }
